@@ -32,11 +32,16 @@ const allowedOrigins = [
 
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   })
 );
-
 app.post("/api/payments/webhook", express.raw({ type: "application/json" }), razorpayWebhook);
 app.use(express.json());
 app.use(cookieParser());
@@ -45,7 +50,7 @@ app.use(
   fileUpload({
     useTempFiles: true,
     tempFileDir: "/tmp",
-    createParentPath: true,
+    createParentPath: true, 
   })
 );
 
