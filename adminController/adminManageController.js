@@ -80,6 +80,34 @@ export const updateAdminPermissions = async (req, res) => {
   }
 };
 
+export const updateAdmin = async (req, res) => {
+  try {
+    const { fullName, email, password, permissions = []  } = req.body;
+    const validPermissions = permissions.filter((p) => ALL_SECTIONS.includes(p));
+   
+    if(!fullName || !email || !password) {
+        return res.status(404).json({ success: false, message: "Invalid details" });
+    }
+    const hashedPassword = bcrypt.hashSync(password, 10);
+    const update = { permissions: validPermissions, fullName: fullName, password: hashedPassword, email: email };
+    if (typeof isActive === "boolean") update.isActive = isActive;
+
+    const admin = await Admin.findOneAndUpdate(
+      { _id: req.params.id, role: "admin" },
+      update,
+      { new: true }
+    );
+
+    if (!admin) {
+      return res.status(404).json({ success: false, message: "Admin not found" });
+    }
+
+    res.status(200).json({ success: true, message: "Admin updated", admin });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 export const deleteAdmin = async (req, res) => {
   try {
     const admin = await Admin.findOneAndDelete({ _id: req.params.id, role: "admin" });

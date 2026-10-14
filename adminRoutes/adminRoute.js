@@ -7,12 +7,14 @@ import {
   getOrderById,
   updateOrderStatus,
   updateOrderDeliveryDate,
+ 
 } from "../adminController/adminController.js";
 import {
   createAdmin,
   getAllAdmins,
   updateAdminPermissions,
   deleteAdmin,
+  updateAdmin
 } from "../adminController/adminManageController.js";
 import {
   getInventorySummary,
@@ -57,6 +59,7 @@ router.get("/reports/order-status", requirePermission("reports"), getOrderStatus
 router.post("/admins", isSuperAdmin, createAdmin);
 router.get("/admins", isSuperAdmin, getAllAdmins);
 router.put("/admins/:id", isSuperAdmin, updateAdminPermissions);
+router.put("/admins/update/:id", isSuperAdmin, updateAdmin );
 router.delete("/admins/:id", isSuperAdmin, deleteAdmin);
 
 // Category routes (protected by products permission)

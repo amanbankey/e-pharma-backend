@@ -6,14 +6,18 @@ import sendEmail from "../utils/sendMail.js"
 import OTP from "../models/OTP.js";
 import Profile from "../models/Profile.js";
 import dotenv from "dotenv"
-import crypto from "crypto";
+import {
+  sendOTP as sendMessageCentralOTP,
+  verifyOTP as verifyMessageCentralOTP,
+} from "../utils/messageCentral.js";
+
 
 dotenv.config()
 
 export const login = async (req, res) => {
     try {
       const { email, password } = req.body;
-      const user = await User.findOne({ email });
+     
 
       if(!email || !password) {
         return res.status(404).json({
@@ -22,6 +26,7 @@ export const login = async (req, res) => {
         })
       }
 
+      const user = await User.findOne({ email });
       if(!user) {
         return res.status(400).json({
           success: false,
@@ -186,6 +191,226 @@ export const sendOTP = async (req, res) => {
     })
   }
 }
+
+export const phoneLogin = async (req, res) => {
+    try {
+      const { phone, password } = req.body;
+    
+
+      if(!phone || !password) {
+        return res.status(404).json({
+            message: "Phone number and password are required!",
+            success: false
+        })
+      }
+
+      const user = await User.findOne({ phone });
+
+      if(!user) {
+        return res.status(400).json({
+          success: false,
+          message: "User is not registered, please signup first",
+        });
+      }
+
+      const match = await bcrypt.compare(password, user.password);
+
+      if (match) {
+        const payload = {
+          email: user.email,
+          phone: user.phone,
+          id: user._id,
+          role: user.role,
+        };
+
+        const token = jwt.sign(payload, process.env.JWT_SECRET, {
+          expiresIn: "3d",
+        });
+
+        user.token = token;
+        user.password = undefined;
+
+        const options = {
+          expires: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+          httpOnly: true,
+        };
+
+        res.cookie("token", token, options).status(200).json({
+          success: true,
+          user,
+          token,
+          message: "Logged In successfully",
+        });
+
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: "Password is incorrect",
+        });
+      }
+    } catch (err) {
+      return res.status(500).json({
+        message: "Login failure, please try again",
+        success: false,
+      });
+    }
+  };
+  
+ export const sendMobileOTP = async (req, res) => {
+  try {
+    const { phone } = req.body;
+
+    if (!phone || !/^\d{10}$/.test(phone.toString().trim())) {
+      return res.status(400).json({
+        message: "Please input valid 10-digit mobile number!",
+        success: false,
+      });
+    }
+
+    const cleanPhone = phone.toString().trim();
+
+    const checkUserPresent = await User.findOne({ phone: cleanPhone });
+    if (checkUserPresent) {
+      return res.status(400).json({
+        success: false,
+        message: "User already registered with this mobile number",
+      });
+    }
+
+    // Clear previous OTP records for this phone
+    await OTP.deleteMany({
+      phone: cleanPhone,
+    });
+
+    // Send OTP via Message Central
+    const otpResponse = await sendMessageCentralOTP(cleanPhone);
+
+    if (otpResponse?.Status !== "Success") {
+      return res.status(400).json({
+        success: false,
+        message: otpResponse?.Details || "Failed to send OTP",
+      });
+    }
+
+    // Save session in OTP collection (expires in 5 minutes via TTL)
+    await OTP.create({
+      phone: cleanPhone,
+      sessionId: otpResponse.Details,
+      otp: "AUTOGEN",
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "OTP sent successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const phoneSignup = async (req, res) => {
+  try {
+    const { phone, otp, password, fullName } = req.body;
+
+    if (!phone || !otp || !password || !fullName) {
+      return res.status(400).json({
+        message: "Please input all required details!",
+        success: false,
+      });
+    }
+
+    const cleanPhone = phone.toString().trim();
+
+    if (!/^\d{10}$/.test(cleanPhone)) {
+      return res.status(400).json({
+        message: "Please check your 10-digit mobile number!",
+        success: false,
+      });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ phone: cleanPhone });
+
+    if (existingUser) {
+      return res.status(409).json({
+        message: "Mobile number already exists!",
+        success: false,
+      });
+    }
+
+    // Find active OTP record for this phone
+    const otpDoc = await OTP.findOne({
+      phone: cleanPhone,
+    }).sort({
+      createdAt: -1,
+    });
+
+    if (!otpDoc) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or expired OTP!",
+      });
+    }
+
+    // Verify OTP with Message Central using the stored verificationId
+    let isVerified = false;
+    let verifyMessage = "Invalid or expired OTP!";
+
+    if (otpDoc.sessionId) {
+      const verifyResponse = await verifyMessageCentralOTP(cleanPhone, otpDoc.sessionId, otp);
+      console.log("MessageCentral Verification:", verifyResponse);
+      isVerified = verifyResponse?.Status === "Success";
+      if (!isVerified && verifyResponse?.Details) verifyMessage = verifyResponse.Details;
+    }
+
+    // Strict validation: if OTP is invalid, do NOT create user in DB!
+    if (!isVerified) {
+      return res.status(400).json({
+        success: false,
+        message: verifyMessage,
+      });
+    }
+
+    // Clean up OTP to prevent replay
+    await OTP.deleteMany({ phone: cleanPhone });
+
+    const hashedPassword = bcrypt.hashSync(password, 10);
+
+    // Create profile
+    const profileDetails = await Profile.create({
+      gender: null,
+      dateOfBirth: null,
+      about: null,
+      contactNumber: cleanPhone,
+    });
+
+    // Create user
+    const data = await User.create({
+      fullName: fullName.trim(),
+      phone: cleanPhone,
+      password: hashedPassword,
+      additionalDetails: profileDetails._id,
+      isPhoneVerified: true,
+    });
+
+    return res.status(200).json({
+      message: "Signup successfully",
+      success: true,
+      data,
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+ 
 
 export const resetPasswordToken = async (req, res) => {
     try {

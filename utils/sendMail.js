@@ -43,7 +43,7 @@ const brevo = new BrevoClient({
   apiKey: process.env.BREVO_API_KEY,
 });
 
-const sendEmail = async (email, title, body) => {
+const sendEmail = async (email, title, body, options = {}) => {
   try {
     await brevo.transactionalEmails.sendTransacEmail({
       sender: {
@@ -57,6 +57,7 @@ const sendEmail = async (email, title, body) => {
       ],
       subject: title,
       htmlContent: body,
+      ...(options.replyTo ? { replyTo: options.replyTo } : {}),
     });
 
     return {

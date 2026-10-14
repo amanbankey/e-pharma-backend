@@ -90,6 +90,6 @@ export const requirePermission = (section) => (req, res, next) => {
   if (req.admin?.permissions?.includes(section)) return next();
   return res.status(403).json({
     success: false,
-    message: `You don't have access to ${section}`,
+    message: ` to ${section}`,
   });
 };

@@ -9,7 +9,7 @@ import { connect } from "./config/database.js";
 import { auth } from "./middlewares/auth.js";
 import { cloudinaryConnect } from "./config/cloudinary.js";
 
-import adminRoute from "./adminRoutes/adminRoute.js";
+import adminRoute from "./adminRoutes/adminRoute.js"; 
 import adminAuthRoute from "./adminRoutes/adminAuthRoute.js";
 
 import userRoute from "./routes/userRoute.js";

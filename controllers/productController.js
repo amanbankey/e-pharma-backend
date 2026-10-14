@@ -5,6 +5,7 @@ import {
   deleteImageFromCloudinary,
 } from "../utils/imageUploader.js";
 
+
 export const getAllProducts = async (req, res) => {
   try {
     const { category, search } = req.query;
@@ -115,6 +116,9 @@ export const updateProduct = async (req, res) => {
   }
 };
 
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const ALLOWED_IMAGE_EXTENSIONS = /\.(jpe?g|png|webp)$/i;
+
 export const uploadProductImage = async (req, res) => {
   try {
     const file = req.files?.image || req.files?.file;
@@ -122,7 +126,15 @@ export const uploadProductImage = async (req, res) => {
       return res.status(400).json({ success: false, message: "No image file provided" });
     }
 
+    if (!ALLOWED_IMAGE_TYPES.includes(file.mimetype) || !ALLOWED_IMAGE_EXTENSIONS.test(file.name || "")) {
+      return res.status(400).json({
+        success: false,
+        message: "Please upload jpg, jpeg, png or webp extension image",
+      });
+    }
+
     const uploaded = await uploadImageToCloudinary(file, "epharma-products");
+
     return res.status(200).json({
       success: true,
       message: "Image uploaded successfully",
