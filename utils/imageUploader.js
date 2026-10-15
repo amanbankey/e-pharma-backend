@@ -13,9 +13,11 @@ export const uploadImageToCloudinary = async(file, folder, height, quality) => {
         options.quality = quality;
     }
 
-    // Convert jpg/jpeg/png/etc. to WebP before uploading to save Cloudinary storage
-    const isConvertible = file.mimetype?.startsWith("image/") && !/gif|svg/.test(file.mimetype);
-    if (!isConvertible) {
+    // Any image (jpg, jpeg, png, ...) is converted to WebP before uploading to save Cloudinary storage.
+    // Images that are already WebP, and non-image files, are uploaded as they are.
+    const isImage = file.mimetype?.startsWith("image/");
+    const isAlreadyWebp = file.mimetype === "image/webp";
+    if (!isImage || isAlreadyWebp) {
         return await cloudinary.uploader.upload(file.tempFilePath, options);
     }
 

@@ -104,7 +104,7 @@ export const updateProfile = async (req, res) => {
       data: updatedUserDetails,
     });
   } catch (error) {
-    return res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, message: error.message, error: error.message });
   }
 };
 
