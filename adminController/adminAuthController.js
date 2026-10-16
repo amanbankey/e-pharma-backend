@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import crypto from "crypto";
 import sendEmail from "../utils/sendMail.js";
+import { validatePassword } from "../utils/passwordPolicy.js";
 
 dotenv.config();
 
@@ -22,6 +23,11 @@ export const setupSuperAdmin = async (req, res) => {
 
     if (!fullName || !email || !password) {
       return res.status(404).json({ success: false, message: "Please input valid details!" });
+    }
+
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      return res.status(400).json({ success: false, message: passwordError });
     }
 
     const hashedPassword = bcrypt.hashSync(password, 10);
@@ -201,10 +207,11 @@ export const superAdminResetPassword = async (req, res) => {
       });
     }
 
-    if (password.length < 6) {
+    const passwordError = validatePassword(password);
+    if (passwordError) {
       return res.status(400).json({
         success: false,
-        message: "Password must be at least 6 characters",
+        message: passwordError,
       });
     }
 
@@ -283,10 +290,11 @@ export const superAdminChangePassword = async (req, res) => {
       });
     }
 
-    if (newPassword.length < 6) {
+    const passwordError = validatePassword(newPassword);
+    if (passwordError) {
       return res.status(400).json({
         success: false,
-        message: "New password must be at least 6 characters",
+        message: passwordError,
       });
     }
 

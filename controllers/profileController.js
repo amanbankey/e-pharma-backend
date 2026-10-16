@@ -2,6 +2,7 @@ import bcrypt from "bcrypt";
 import Profile from "../models/Profile.js";
 import User from "../models/User.js";
 import Order from "../models/Order.js";
+import { validatePassword } from "../utils/passwordPolicy.js";
 
 export const updateProfile = async (req, res) => {
   try {
@@ -61,10 +62,11 @@ export const updateProfile = async (req, res) => {
     // Password update handling
     const pwdToSet = newPassword || password;
     if (pwdToSet && pwdToSet.trim()) {
-      if (pwdToSet.trim().length < 6) {
+      const passwordError = validatePassword(pwdToSet.trim());
+      if (passwordError) {
         return res.status(400).json({
           success: false,
-          message: "Password must be at least 6 characters long",
+          message: passwordError,
         });
       }
 

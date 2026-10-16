@@ -10,6 +10,7 @@ import {
   sendOTP as sendMessageCentralOTP,
   verifyOTP as verifyMessageCentralOTP,
 } from "../utils/messageCentral.js";
+import { validatePassword } from "../utils/passwordPolicy.js";
 
 
 dotenv.config()
@@ -85,6 +86,14 @@ export const signup =  async(req, res) => {
         if(!fullName || !email || !password || !phone) {
             return res.status(404).json({
                 message: "Please input valid details!",
+                success: false
+            })
+        }
+
+        const passwordError = validatePassword(password);
+        if (passwordError) {
+            return res.status(400).json({
+                message: passwordError,
                 success: false
             })
         }
@@ -331,6 +340,14 @@ export const phoneSignup = async (req, res) => {
       });
     }
 
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      return res.status(400).json({
+        message: passwordError,
+        success: false,
+      });
+    }
+
     // Check if user already exists
     const existingUser = await User.findOne({ phone: cleanPhone });
 
@@ -475,6 +492,14 @@ export const resetPasswordToken = async (req, res) => {
         })
       }
 
+      const passwordError = validatePassword(password);
+      if (passwordError) {
+        return res.status(400).json({
+          success: false,
+          message: passwordError,
+        })
+      }
+
       const updateDetails = await User.findOne({ token: token });
 
       if (!updateDetails) {
@@ -542,6 +567,11 @@ export const resetPasswordToken = async (req, res) => {
       return res
         .status(401)
         .json({ success: false, message: "The password is incorrect" })
+    }
+
+    const passwordError = validatePassword(newPassword);
+    if (passwordError) {
+      return res.status(400).json({ success: false, message: passwordError })
     }
 
     const encryptedPassword = await bcrypt.hash(newPassword, 10)

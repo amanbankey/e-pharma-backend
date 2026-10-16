@@ -1,6 +1,7 @@
 import Admin from "../adminModels/Admin.js";
 import bcrypt from "bcrypt";
 import sendEmail from "../utils/sendMail.js";
+import { validatePassword } from "../utils/passwordPolicy.js";
 
 const ALL_SECTIONS = ["products", "inventory", "orders", "reports", "users", "admins"];
 
@@ -10,6 +11,11 @@ export const createAdmin = async (req, res) => {
 
     if (!fullName || !email || !password) {
       return res.status(404).json({ success: false, message: "Please input valid details!" });
+    }
+
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      return res.status(400).json({ success: false, message: passwordError });
     }
 
     const existing = await Admin.findOne({ email });
@@ -88,6 +94,12 @@ export const updateAdmin = async (req, res) => {
     if(!fullName || !email || !password) {
         return res.status(404).json({ success: false, message: "Invalid details" });
     }
+
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      return res.status(400).json({ success: false, message: passwordError });
+    }
+
     const hashedPassword = bcrypt.hashSync(password, 10);
     const update = { permissions: validPermissions, fullName: fullName, password: hashedPassword, email: email };
     if (typeof isActive === "boolean") update.isActive = isActive;
